@@ -69,11 +69,18 @@ class LoginController extends BaseController
     {
         [
             'mobile' => $mobile,
+            'username' => $username,
             'password' => $password,
         ] = $request->filldata();
-        $user = $this->userService->passwordLogin($mobile, $password);
+
+        if ($username) {
+            $user = $this->userService->usernameLogin($username, $password);
+        } else {
+            $user = $this->userService->passwordLogin($mobile, $password);
+        }
+
         if (!$user) {
-            return $this->error(__('手机号或密码错误'));
+            return $this->error(__('账号或密码错误'));
         }
 
         try {

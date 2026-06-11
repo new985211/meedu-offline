@@ -49,7 +49,7 @@ export const LoginDialog: React.FC<PropInterface> = ({
 
   useEffect(() => {
     form.setFieldsValue({
-      mobile: "",
+      username: "",
       password: "",
       captcha: "",
       sms: "",
@@ -123,7 +123,7 @@ export const LoginDialog: React.FC<PropInterface> = ({
     setLoading(true);
     if (tabKey === 0) {
       login
-        .passwordLogin({ mobile: values.mobile, password: values.password })
+        .passwordLogin({ username: values.username, password: values.password })
         .then((res: any) => {
           setLoading(false);
           let token = res.data.token;
@@ -290,16 +290,30 @@ export const LoginDialog: React.FC<PropInterface> = ({
             autoComplete="off"
             style={{ marginTop: 30 }}
           >
-            <Form.Item
-              name="mobile"
-              rules={[{ required: true, message: "请输入手机号!" }]}
-            >
-              <Input
-                style={{ width: 440, height: 54, fontSize: 16 }}
-                autoComplete="off"
-                placeholder="请输入手机号"
-              />
-            </Form.Item>
+            {tabKey == 0 && (
+              <Form.Item
+                name="username"
+                rules={[{ required: true, message: "请输入用户名或手机号!" }]}
+              >
+                <Input
+                  style={{ width: 440, height: 54, fontSize: 16 }}
+                  autoComplete="off"
+                  placeholder="请输入用户名或手机号"
+                />
+              </Form.Item>
+            )}
+            {tabKey == 1 && (
+              <Form.Item
+                name="mobile"
+                rules={[{ required: true, message: "请输入手机号!" }]}
+              >
+                <Input
+                  style={{ width: 440, height: 54, fontSize: 16 }}
+                  autoComplete="off"
+                  placeholder="请输入手机号"
+                />
+              </Form.Item>
+            )}
             {tabKey == 0 && (
               <Form.Item
                 name="password"

@@ -56,6 +56,25 @@ class UserService implements UserServiceInterface
         return $user->toArray();
     }
 
+    /**
+     * 用户名或手机号 + 密码登录（离线环境下用户可使用管理员配置的用户名登录）
+     */
+    public function usernameLogin(string $username, string $password): array
+    {
+        $user = User::query()
+            ->where('username', $username)
+            ->orWhere('mobile', $username)
+            ->first();
+        if (!$user) {
+            return [];
+        }
+        if (!Hash::check($password, $user['password'])) {
+            return [];
+        }
+
+        return $user->toArray();
+    }
+
     public function changePassword(int $userId, string $password): void
     {
         User::query()->where('id', $userId)->update([

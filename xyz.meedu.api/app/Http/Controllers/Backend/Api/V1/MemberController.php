@@ -124,8 +124,17 @@ class MemberController extends BaseController
     {
         $data = $request->filldata();
 
+        // 离线环境：username 为空时自动使用 mobile 作为默认用户名
+        if (!$data['username'] && $data['mobile']) {
+            $data['username'] = $data['mobile'];
+        }
+        // 如果 username 和 mobile 都为空则报错
+        if (!$data['username'] && !$data['mobile']) {
+            return $this->error(__('用户名和手机号至少填写一项'));
+        }
+
         if (!$data['nick_name']) {
-            $data['nick_name'] = __('用户') . '_' . Str::random(5);
+            $data['nick_name'] = $data['username'] ?: __('用户') . '_' . Str::random(5);
         }
         if (!$data['avatar']) {
             $data['avatar'] = $configService->getMemberDefaultAvatar();
@@ -151,7 +160,7 @@ class MemberController extends BaseController
 
         // 只可白名单的字段更新
         $data = $request->only([
-            'avatar', 'nick_name', 'mobile', 'password',
+            'avatar', 'nick_name', 'mobile', 'username', 'password',
             'is_lock', 'is_active', 'role_id', 'role_expired_at',
             'invite_user_id', 'invite_balance', 'invite_user_expired_at',
         ]);
@@ -167,8 +176,12 @@ class MemberController extends BaseController
         }
 
         // 手机号校验
-        if (User::query()->where('mobile', $data['mobile'])->where('id', '<>', $user['id'])->exists()) {
+        if (!empty($data['mobile']) && User::query()->where('mobile', $data['mobile'])->where('id', '<>', $user['id'])->exists()) {
             return $this->error(__('手机号已存在'));
+        }
+        // 用户名校验
+        if (!empty($data['username']) && User::query()->where('username', $data['username'])->where('id', '<>', $user['id'])->exists()) {
+            return $this->error(__('用户名已存在'));
         }
         // 昵称校验
         if (User::query()->where('nick_name', $data['nick_name'])->where('id', '<>', $user['id'])->exists()) {
@@ -467,7 +480,7 @@ class MemberController extends BaseController
 
     public function import(Request $request)
     {
-        // ([0] => 昵称, [1] => mobile, [2] => password, [3] => role_id, [4] => role_expired_at, [5] => is_lock, [6] => tag标签)
+        // ([0] => 昵称, [1] => mobile, [2] => password, [3] => role_id, [4] => role_expired_at, [5] => is_lock, [6] => tag标签, [7] => username)
         $users = $request->input('users');
         $line = (int)$request->input('line');
         if (!$users || !is_array($users)) {
@@ -481,6 +494,7 @@ class MemberController extends BaseController
 
         $transformedUserList = [];
         $tmpMobileList = [];
+        $tmpUsernameList = [];
         $tmpNicknameList = [];
         foreach ($users as $index => $tmpItem) {
             $tmpCurLineNumber = $line + $index;
@@ -491,13 +505,23 @@ class MemberController extends BaseController
             $tmpRoleId = max((int)($tmpItem[3] ?? ''), 0);
             $tmpRoleExpiredAt = $tmpItem[4] ?? '';
             $tmpTag = $tmpItem[5] ?? '';
+            $tmpUsername = $tmpItem[7] ?? '';
 
-            if (!$tmpMobile) {
-                return $this->error(__('第 :line 行的手机号为空', ['line' => $tmpCurLineNumber]));
+            // username 未设置时，默认使用 mobile 作为 username
+            if (!$tmpUsername && $tmpMobile) {
+                $tmpUsername = $tmpMobile;
             }
 
-            if (in_array($tmpMobile, $tmpMobileList)) {
+            if (!$tmpMobile && !$tmpUsername) {
+                return $this->error(__('第 :line 行的手机号和用户名为空，至少填写一项', ['line' => $tmpCurLineNumber]));
+            }
+
+            if ($tmpMobile && in_array($tmpMobile, $tmpMobileList)) {
                 return $this->error(__('第 :line 行的手机号 :mobile 已存在', ['line' => $tmpCurLineNumber, 'mobile' => $tmpMobile]));
+            }
+
+            if ($tmpUsername && in_array($tmpUsername, $tmpUsernameList)) {
+                return $this->error(__('第 :line 行的用户名 :username 已存在', ['line' => $tmpCurLineNumber, 'username' => $tmpUsername]));
             }
 
             if ($tmpNickname && in_array($tmpNickname, $tmpNicknameList)) {
@@ -521,11 +545,13 @@ class MemberController extends BaseController
             }
 
             $tmpMobileList[] = $tmpMobile;
+            $tmpUsername && $tmpUsernameList[] = $tmpUsername;
             $tmpNickname && $tmpNicknameList[] = $tmpNickname;
             $transformedUserList [] = [
                 'nick_name' => $tmpNickname ?: __('用户') . '_' . Str::random(5),
                 'mobile' => $tmpMobile,
-                'password' => $tmpPassword ?: $tmpMobile, //如果密码为空的话则默认等于手机号
+                'username' => $tmpUsername,
+                'password' => $tmpPassword ?: ($tmpMobile ?: Str::random(10)), //如果密码为空的话则默认等于手机号或随机字符串
                 'role_id' => $tmpRoleId,
                 'role_expired_at' => $tmpRoleExpiredAt ? Carbon::parse($tmpRoleExpiredAt)->toDateTimeLocalString() : null,
                 'tag' => $tmpTag,
@@ -533,14 +559,31 @@ class MemberController extends BaseController
         }
 
         // 手机号存在检测
-        $exists = User::query()->whereIn('mobile', array_column($transformedUserList, 'mobile'))->select(['mobile'])->get();
-        if ($exists->isNotEmpty()) {
-            return $this->error(__(
-                '手机号 :mobiles 已经注册为本站用户!请勿重复导入!',
-                [
-                    'mobiles' => implode(',', $exists->pluck('mobile')->toArray()),
-                ]
-            ));
+        $mobileList = array_filter(array_column($transformedUserList, 'mobile'));
+        if ($mobileList) {
+            $exists = User::query()->whereIn('mobile', $mobileList)->select(['mobile'])->get();
+            if ($exists->isNotEmpty()) {
+                return $this->error(__(
+                    '手机号 :mobiles 已经注册为本站用户!请勿重复导入!',
+                    [
+                        'mobiles' => implode(',', $exists->pluck('mobile')->toArray()),
+                    ]
+                ));
+            }
+        }
+
+        // 用户名存在检测
+        $usernameList = array_filter(array_column($transformedUserList, 'username'));
+        if ($usernameList) {
+            $exists = User::query()->whereIn('username', $usernameList)->select(['username'])->get();
+            if ($exists->isNotEmpty()) {
+                return $this->error(__(
+                    '用户名 :usernames 已经注册为本站用户!请勿重复导入!',
+                    [
+                        'usernames' => implode(',', $exists->pluck('username')->toArray()),
+                    ]
+                ));
+            }
         }
 
         // 标签处理
@@ -605,6 +648,7 @@ class MemberController extends BaseController
                 // 批量插入用户
                 foreach ($tmpUsers as $tmpItem) {
                     $data[] = [
+                        'username' => $tmpItem['username'],
                         'mobile' => $tmpItem['mobile'],
                         'avatar' => $defaultAvatar,
                         'nick_name' => $tmpItem['nick_name'],
@@ -624,16 +668,20 @@ class MemberController extends BaseController
                 // 标签关联数据缓存
                 $tagInsertList = [];
                 $mobile2idMap = User::query()
-                    ->whereIn('mobile', array_column($data, 'mobile'))
-                    ->select(['id', 'mobile'])
+                    ->whereIn('mobile', array_filter(array_column($data, 'mobile')))
+                    ->orWhereIn('username', array_filter(array_column($data, 'username')))
+                    ->select(['id', 'mobile', 'username'])
                     ->get()
-                    ->keyBy('mobile')
+                    ->keyBy(function ($item) {
+                        return $item['mobile'] ?: $item['username'];
+                    })
                     ->toArray();
                 foreach ($tmpUsers as $tmpItem) {
                     if (!$tmpItem['tag_ids']) {
                         continue;
                     }
-                    $userId = $mobile2idMap[$tmpItem['mobile']]['id'];
+                    $lookupKey = $tmpItem['mobile'] ?: $tmpItem['username'];
+                    $userId = $mobile2idMap[$lookupKey]['id'];
                     foreach ($tmpItem['tag_ids'] as $tagId) {
                         $tagInsertList[] = [
                             'user_id' => $userId,

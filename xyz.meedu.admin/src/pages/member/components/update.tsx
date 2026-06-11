@@ -54,6 +54,7 @@ export const MemberUpdateDialog = (props: PropsInterface) => {
       nick_name: res.data.nick_name,
       avatar: res.data.avatar,
       mobile: res.data.mobile,
+      username: res.data.username || "",
       role_expired_at:
         res.data.role_id == 0
           ? ""
@@ -135,14 +136,25 @@ export const MemberUpdateDialog = (props: PropsInterface) => {
               autoComplete="off"
             >
               <Form.Item
+                label="用户名"
+                name="username"
+                rules={[{ required: false, message: "请输入用户名!" }]}
+              >
+                <Input
+                  style={{ width: 300 }}
+                  placeholder="离线环境学员登录用户名"
+                  allowClear
+                />
+              </Form.Item>
+              <Form.Item
                 label="手机号码"
                 name="mobile"
-                rules={[{ required: true, message: "请输入手机号码!" }]}
+                rules={[{ required: false, message: "请输入手机号码!" }]}
               >
                 <Input
                   type="number"
                   style={{ width: 300 }}
-                  placeholder="填输入学员登录手机号码"
+                  placeholder="填写学员登录手机号码（离线环境可留空）"
                   allowClear
                 />
               </Form.Item>

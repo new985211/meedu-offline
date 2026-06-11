@@ -13,7 +13,8 @@ class PasswordLoginRequest extends BaseRequest
     public function rules()
     {
         return [
-            'mobile' => 'bail|required',
+            'mobile' => 'required_without:username',
+            'username' => 'required_without:mobile',
             'password' => 'required',
         ];
     }
@@ -21,7 +22,8 @@ class PasswordLoginRequest extends BaseRequest
     public function messages()
     {
         return [
-            'mobile.required' => __('请输入手机号'),
+            'mobile.required_without' => __('请输入手机号或用户名'),
+            'username.required_without' => __('请输入手机号或用户名'),
             'password.required' => __('请输入密码'),
         ];
     }
@@ -29,7 +31,8 @@ class PasswordLoginRequest extends BaseRequest
     public function filldata()
     {
         return [
-            'mobile' => $this->post('mobile'),
+            'mobile' => $this->post('mobile', ''),
+            'username' => $this->post('username', ''),
             'password' => $this->post('password'),
         ];
     }

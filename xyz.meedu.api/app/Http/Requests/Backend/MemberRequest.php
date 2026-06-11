@@ -32,7 +32,8 @@ class MemberRequest extends BaseRequest
     public function rules()
     {
         return [
-            'mobile' => 'required|unique:users,mobile',
+            'username' => 'nullable|unique:users,username',
+            'mobile' => 'nullable|unique:users,mobile',
             'password' => 'required',
         ];
     }
@@ -40,7 +41,7 @@ class MemberRequest extends BaseRequest
     public function messages()
     {
         return [
-            'mobile.required' => __('请输入手机号'),
+            'username.unique' => __('用户名已存在'),
             'mobile.unique' => __('手机号已存在'),
             'password.required' => __('请输入密码'),
         ];
@@ -52,9 +53,10 @@ class MemberRequest extends BaseRequest
         $roleExpiredAt && $roleExpiredAt = Carbon::parse($roleExpiredAt)->toDateTimeLocalString();
 
         return [
+            'username' => $this->post('username', ''),
             'avatar' => $this->post('avatar') ?? '',
             'nick_name' => $this->post('nick_name') ?? '',
-            'mobile' => $this->post('mobile'),
+            'mobile' => $this->post('mobile', ''),
             'password' => Hash::make($this->post('password')),
             'is_active' => User::ACTIVE_YES,
             'role_id' => (int)$this->input('role_id'),

@@ -33,6 +33,7 @@ export const MemberCreateDialog = (props: PropsInterface) => {
         nick_name: "",
         avatar: "",
         password: "",
+        username: "",
         mobile: "",
         role_expired_at: "",
         role_id: [],
@@ -102,14 +103,25 @@ export const MemberCreateDialog = (props: PropsInterface) => {
               autoComplete="off"
             >
               <Form.Item
+                label="用户名"
+                name="username"
+                rules={[{ required: false, message: "请输入用户名!" }]}
+              >
+                <Input
+                  style={{ width: 300 }}
+                  placeholder="离线环境用于学员登录，可填写任意用户名"
+                  allowClear
+                />
+              </Form.Item>
+              <Form.Item
                 label="手机号码"
                 name="mobile"
-                rules={[{ required: true, message: "请输入手机号码!" }]}
+                rules={[{ required: false, message: "请输入手机号码!" }]}
               >
                 <Input
                   type="number"
                   style={{ width: 300 }}
-                  placeholder="填输入学员登录手机号码"
+                  placeholder="填写学员登录手机号码（离线环境可留空）"
                   allowClear
                 />
               </Form.Item>

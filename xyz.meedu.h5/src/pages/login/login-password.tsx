@@ -6,7 +6,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { login, system, user } from "../../api/index";
 import {
   setToken,
-  isChinaMobilePhone,
   getHost,
   clearToken,
   saveBizToken,
@@ -29,7 +28,7 @@ const LoginPasswordPage = () => {
   const redirect = result.get("redirect") || "";
   
   const [loading, setLoading] = useState(false);
-  const [mobile, setMobile] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [modelTitle, setModelTitle] = useState("");
   const [modelText, setModelText] = useState("");
@@ -44,11 +43,7 @@ const LoginPasswordPage = () => {
   }, []);
 
   const passwordLoginHandler = () => {
-    if (!mobile) {
-      return;
-    }
-    if (!isChinaMobilePhone(mobile)) {
-      Toast.show("请输入正确的手机号");
+    if (!username) {
       return;
     }
     if (!password) {
@@ -57,7 +52,7 @@ const LoginPasswordPage = () => {
     setLoading(true);
     login
       .PasswordLogin({
-        mobile: mobile,
+        username: username,
         password: password,
       })
       .then((res: any) => {
@@ -161,22 +156,22 @@ const LoginPasswordPage = () => {
       <div className={styles["password-login-form"]}>
         <div className={styles["password-login-title"]}>登录</div>
         <div className={styles["item"]}>
-          <div className={styles["name"]}>手机号</div>
+          <div className={styles["name"]}>用户名/手机号</div>
           <div className={styles["input"]}>
             <Input
               className={styles["input-text"]}
-              placeholder="请输入手机号码"
-              value={mobile}
+              placeholder="请输入用户名或手机号"
+              value={username}
               onChange={(e: any) => {
-                setMobile(e);
+                setUsername(e);
               }}
             />
-            {mobile && (
+            {username && (
               <img
                 src={closeIcon}
                 width={16}
                 height={16}
-                onClick={() => setMobile("")}
+                onClick={() => setUsername("")}
               />
             )}
           </div>
@@ -207,7 +202,7 @@ const LoginPasswordPage = () => {
       <div className="box border-box mt-15 pl-60 pr-60">
         <Button
           className={
-            mobile && password
+            username && password
               ? `${styles["btn-confirm"]} ${styles["active"]}`
               : styles["btn-confirm"]
           }
