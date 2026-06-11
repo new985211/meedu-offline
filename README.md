@@ -79,16 +79,99 @@ docker-compose up -d
 
 在无公网访问、无法接收短信的 Ubuntu 等离线环境中，MeEdu 支持**用户名+密码**方式登录，无需手机验证码。
 
-### 管理员后台创建学员账号
+> 📖 完整离线部署教程请参阅：[docs/ubuntu-offline-deployment-guide.md](docs/ubuntu-offline-deployment-guide.md)
 
-1. 浏览器访问 `http://localhost:8300`，使用默认管理员账号 `meedu@meedu.meedu / meedu123` 登录后台。
-2. 导航至 **学员管理** → **添加学员**。
-3. 填写 **用户名** 和 **登录密码**（手机号可留空），保存即可。
+### 适用场景
 
-### 学员端登录
+- 内网隔离环境，服务器无法访问公网
+- 无法接收手机短信验证码
+- 企业内部培训、学校机房等离线教学场景
 
-- **PC 端** (`http://localhost:8100`)：点击登录 → 选择 **密码登录** → 输入用户名和密码 → 登录。
-- **H5 端** (`http://localhost:8200`)：点击 **使用密码登录** → 输入用户名和密码 → 登录。
+### 快速部署（4 步）
+
+#### ① 准备镜像包（在能访问公网的机器上）
+
+```bash
+# 拉取基础镜像
+docker pull registry.cn-hangzhou.aliyuncs.com/hzbs/php:7.4-fpm-alpine
+docker pull registry.cn-hangzhou.aliyuncs.com/hzbs/node:20-alpine
+docker pull registry.cn-hangzhou.aliyuncs.com/hzbs/mysql:8.1
+docker pull registry.cn-hangzhou.aliyuncs.com/hzbs/redis:7.0.12
+docker pull registry.cn-hangzhou.aliyuncs.com/hzbs/meilisearch:0.24.0
+
+# 构建 MeEdu 镜像（含前端编译 + PHP 依赖）
+cd meedu
+docker build --network=host -t meedu:offline -f Dockerfile .
+
+# 导出离线包
+docker save -o meedu-offline.tar \
+  meedu:offline \
+  registry.cn-hangzhou.aliyuncs.com/hzbs/mysql:8.1 \
+  registry.cn-hangzhou.aliyuncs.com/hzbs/redis:7.0.12 \
+  registry.cn-hangzhou.aliyuncs.com/hzbs/meilisearch:0.24.0
+
+gzip meedu-offline.tar
+# 将 meedu-offline.tar.gz 拷贝到离线服务器
+```
+
+#### ② 在离线 Ubuntu 服务器上载入镜像
+
+```bash
+gunzip meedu-offline.tar.gz
+docker load -i meedu-offline.tar
+docker images  # 确认所有镜像导入成功
+```
+
+#### ③ 配置环境变量并启动
+
+```bash
+cd /opt/meedu
+
+# 生成随机密钥
+echo "APP_KEY=base64:$(head -c 32 /dev/urandom | base64 | tr -d '\n')" > .env
+echo "JWT_SECRET=$(head -c 32 /dev/urandom | base64 | tr -d '\n')" >> .env
+echo "REDIS_PASSWORD=F9nO2FzJ*%uDX58!" >> .env
+
+# 启动所有服务
+docker compose up -d
+```
+
+> ⚠️ 上述 `compose.yml` 中的 `meedu` 服务 `image` 需改为 `meedu:offline`，或创建 `docker-compose.override.yml` 覆盖。
+
+#### ④ 验证服务状态
+
+```bash
+docker compose ps           # 所有容器应为 Up 状态
+docker compose logs meedu | tail -5
+# 应看到：系统默认管理员已初始化! ... ready to handle connections
+```
+
+### 后台管理
+
+- 访问 `http://<服务器IP>:8300`，默认管理员 `meedu@meedu.meedu` / `meedu123`
+- 进入 **学员管理** → **添加学员**：填写 **用户名** + **登录密码**，手机号可留空
+- 支持 CSV/Excel 批量导入学员（username 列为用户名）
+
+### 学员登录
+
+- **PC 端**（`:8100`）：登录 → 密码登录 → 输入**用户名**和**密码**
+- **H5 端**（`:8200`）：登录 → 使用密码登录 → 输入**用户名**和**密码**
+- **API 端点**：`POST /api/v2/login/password`，请求体 `{"username":"用户名","password":"密码"}`
+
+### 测试验证
+
+```bash
+# 用户名+密码登录
+curl -s -X POST http://localhost:8000/api/v2/login/password \
+  -H "Content-Type: application/json" \
+  -d '{"username":"your_username","password":"your_password"}'
+# 成功返回: {"code":0,"message":"","data":{"token":"eyJ0eX..."}}
+
+# 手机号+密码登录（仍支持，兼容旧版）
+curl -s -X POST http://localhost:8000/api/v2/login/password \
+  -H "Content-Type: application/json" \
+  -d '{"mobile":"13800000001","password":"your_password"}'
+```
 
 > 💡 在线环境仍可正常使用手机号+短信验证码登录，两种方式并存。
 

@@ -4,3 +4,5 @@
 /.vscode/
 LOCAL-TEST.md
 .env
+.claude
+docker-compose.override.yml
